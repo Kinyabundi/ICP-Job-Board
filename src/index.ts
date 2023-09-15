@@ -143,6 +143,13 @@ export function getCompanyProfile(id: string): Result<Opt<CompanyProfile>, strin
     }
 }
 
+//get all company
+$query;
+export function getAllCompany(): Result<Vec<CompanyProfile>, string> {
+    return Result.Ok(companyStorage.values());
+}
+
+
 //Job Categories
 $update;
 export function createJobCategory(payload:JobCategoryPayload): Result<JobCategory, string> {
@@ -176,6 +183,14 @@ export function createJobListing(payload: JobListingPayload): Result<JobListing,
     const jobListing: JobListing = { id: uuidv4({ random: [...Array(16)].map(() => Math.floor(Math.random() * 256)) }), applicants: [], ...payload };
     jobListingStorage.insert(jobListing.id, jobListing);
     return Result.Ok(jobListing);
+}
+
+$update;
+export function deleteJobListing(id: string): Result<JobListing, string> {
+    return match(jobListingStorage.remove(id), {
+        Some: (destroyHouse) => Result.Ok<JobListing, string>(destroyHouse),
+        None: () => Result.Err<JobListing, string>(`couldn't destroy a JobListing with id=${id}. Job Id not found.`)
+    });
 }
 
 export function sendNotification(userId: string, message: string): void {
