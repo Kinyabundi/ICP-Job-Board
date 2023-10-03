@@ -1,128 +1,122 @@
-import {
-  $query,
-  $update,
-  Record,
-  StableBTreeMap,
-  Vec,
-  match,
-  Result,
-  nat64,
-  ic,
-  Opt,
-} from 'azle';
+
+import { $query, $update, Record, StableBTreeMap, Vec, match, Result, nat64, ic, Opt } from 'azle';
 import { v4 as uuidv4 } from 'uuid';
-import * as argon2 from 'ic-crypto-password'; // Import the argon2 library for password hashing
+// import { argon2 } from 'ic-crypto-password';
+// import * as crypto from 'crypto';
 
 type User = Record<{
-  id: string;
-  username: string;
-  email: string;
-  passwordHash: string; // Store password hash instead of plain text
-  createdAt: nat64;
-}>;
+    id: string;
+    username: string;
+    email: string;
+    password: string;
+    // salt: string;
+    createdAt: nat64;
+}>
 type UserPayload = Record<{
-  username: string;
-  email: string;
-  password: string;
-}>;
+    username: string;
+    email: string;
+    password: string;
+}>
 type UserLoginPayload = Record<{
-  email: string;
-  password: string;
-}>;
+    email: string;
+    password: string;
+}>
 type CompanyProfile = Record<{
-  id: string;
-  name: string;
-  description: string;
-  website: string;
-  createdAt: nat64;
-}>;
+    id: string;
+    name: string;
+    description: string;
+    website: string;
+    createdAt: nat64;
+}>
 type CompanyProfilePayload = Record<{
-  name: string;
-  description: string;
-  website: string;
-}>;
+    name: string;
+    description: string;
+    website: string;
+}>
+
 type JobCategory = Record<{
-  id: string;
-  name: string;
-}>;
+    id: string;
+    name: string;
+}>
 type JobCategoryPayload = Record<{
-  name: string;
-}>;
+    name: string;
+}>
+
 type JobListing = Record<{
-  id: string;
-  title: string;
-  description: string;
-  location: string;
-  companyId: string;
-  postedBy: string; // Company id
-  applicants: Vec<string>; // List of user IDs who applied
-  category: string; // Job category ID
-}>;
+    id: string;
+    title: string;
+    description: string;
+    location: string;
+    companyId: string;
+    postedBy: string; // Company id
+    applicants: Vec<string>; // List of user IDs who applied
+    category: string; // Job category ID
+}>
+
 type JobListingPayload = Record<{
-  title: string;
-  description: string;
-  location: string;
-  companyId: string;
-  postedBy: string; // Company Name
-  category: string; // Job category ID
-}>;
+    title: string;
+    description: string;
+    location: string;
+    companyId: string;
+    postedBy: string; // Company Name
+    category: string; // Job category ID
+}>
 type JobApplication = Record<{
-  userId: string;
-  jobId: string;
-}>;
+    userId: string;
+    jobId: string;
+}>
 const userStorage = new StableBTreeMap<string, User>(0, 44, 1024);
 const companyStorage = new StableBTreeMap<string, CompanyProfile>(1, 44, 1024);
-const jobCategoryStorage = new StableBTreeMap<string, JobCategory>(2, 44, 1024);
+ const jobCategoryStorage = new StableBTreeMap<string, JobCategory>(2, 44, 1024);
 const jobListingStorage = new StableBTreeMap<string, JobListing>(3, 44, 1024);
 
 // User Registration
 $update;
-export async function registerUser(payload: UserPayload): Promise<Result<User, string>> {
-  const existingUser = userStorage.values().find((user) => user.email === payload.email);
-  if (existingUser) {
-    return Result.Err<User, string>('Email already in use');
-  }
-
-  // Hash the user's password before storing it
-  const passwordHash = await argon2.hash(payload.password);
-  const userId = uuidv4({ random: [...Array(16)].map(() => Math.floor(Math.random() * 256)) });
-  const user: User = {
-    id: userId,
-    createdAt: ic.time(),
-    username: payload.username,
-    email: payload.email,
-    passwordHash: passwordHash,
-  };
-  userStorage.insert(userId, user);
-  return Result.Ok(user);
+export function registerUser(payload:UserPayload): Result<User, string> {
+    const existingUser = userStorage.values().find(user => user.email === payload.email);
+    if (existingUser) {
+        return Result.Err<User, string>('Email already in use');
+    }
+   const userId = uuidv4({ random: [...Array(16)].map(() => Math.floor(Math.random() * 256)) });
+    const user: User = {
+        id: userId,
+        createdAt: ic.time(),
+        username: payload.username,
+        email: payload.email,
+        password: payload.password,
+    };
+    userStorage.insert(userId, user);
+    return Result.Ok(user);
 }
+
 
 $update;
 export function loginUser(payload: UserLoginPayload): Result<User, string> {
-  const user = userStorage.values().find((u) => u.email === payload.email);
-  if (user && argon2.verify(user.passwordHash, payload.password)) {
-    return Result.Ok(user);
-  } else {
-    return Result.Err<User, string>('Invalid email or password');
-  }
+    const user = userStorage.values().find(u => u.email === payload.email && u.password === payload.password);
+    if (user) {
+        return Result.Ok(user);
+    } else {
+        return Result.Err<User, string>('Invalid email or password');
+    }
 }
 
 $query;
 export function getUserProfile(userId: string): Result<Opt<User>, string> {
-  const userOpt = userStorage.get(userId);
-  if (userOpt.Some) {
-    const user = userOpt.Some;
-    return Result.Ok(Opt.Some(user));
-  } else {
-    return Result.Ok(Opt.None);
-  }
+    const userOpt = userStorage.get(userId);
+    if (userOpt.Some) {
+        const user = userOpt.Some;
+        return Result.Ok(Opt.Some(user));
+    } else {
+        return Result.Ok(Opt.None);
+    }
 }
 
-// Get all users
+//get all user
 $query;
 export function getAllUser(): Result<Vec<User>, string> {
-  return Result.Ok(userStorage.values());
+    return Result.Ok(userStorage.values());
 }
+
 
 // Company Profiles
 $update;
